@@ -1,9 +1,11 @@
 import CredentialMode from "./CredentialMode";
 import Mesh from "./Mesh";
 import Texture from "./Texture";
+import ModelData from "./ModelData";
 import GenericEntity from "./GenericEntity";
 import MarkerLineEntity from "./MarkerLineEntity";
 import TextEntity from "./TextEntity";
+import ModelEntity from "./ModelEntity";
 
 
 /**
@@ -78,7 +80,7 @@ class SceneLoader {
      * @desc
      * <p>注意: シーンの読み込みが終了したことを確認してからこのメソッドを呼び出すこと。</p>
      * @param  {string}                                   id  識別子
-     * @return {?(mapray.Mesh|mapray.Texture|mapray.Entity)}  オブジェクト
+     * @return {?(mapray.Mesh|mapray.Texture|mapray.ModelData|mapray.Entity)}  オブジェクト
      */
     getReference( id )
     {
@@ -92,7 +94,7 @@ class SceneLoader {
      * @desc
      * <p>オブジェクト item を識別子 id で参照できるように this に設定する。</p>
      * @param {string}                                   id    識別子
-     * @param {mapray.Mesh|mapray.Texture|mapray.Entity} item  オブジェクト
+     * @param {mapray.Mesh|mapray.Texture|mapray.ModelData|mapray.Entity} item  オブジェクト
      * @private
      */
     _setReference( id, item )
@@ -137,6 +139,7 @@ class SceneLoader {
 
         this._load_mesh_register( oscene );
         this._load_texture_register( oscene );
+        this._load_model_register( oscene );
 
         if ( oscene.req_count == 0 ) {
             this._postload_object( oscene );
@@ -190,6 +193,52 @@ class SceneLoader {
                 this._setReference( id, new Mesh( this._glenv, mesh ) );
             }
         }
+    }
+
+
+    /**
+     * @private
+     */
+    _load_model_register( oscene )
+    {
+        var model_register = oscene["model_register"];
+        if ( !model_register ) return;
+
+        var keys = Object.keys( model_register );
+        for ( var i = 0; i < keys.length; ++i ) {
+            var    id = keys[i];
+            var model = model_register[id];
+            this._load_model_data( oscene, id, model.link );
+        }
+    }
+
+
+    /**
+     * @private
+     */
+    _load_model_data( oscene, id, url )
+    {
+        var tr = this._transform( url, ResourceType.MODEL );
+
+        fetch( tr.url, this._make_fetch_params( tr ) )
+            .then( response => {
+                this._check_cancel();
+                return response.json();
+            } )
+            .then( json => {
+                // モデルデータの取得に成功
+                this._check_cancel();
+                this._setReference( id, new ModelData( json, { base_uri: url } ) );
+            } )
+            .catch( () => {
+                // モデルデータの取得に失敗
+                console.error( "mapray: failed to retrieve: " + tr.url );
+            } )
+            .then( () => {
+                this._postload_object_ifNoReq( oscene );
+            } );
+
+        ++oscene.req_count;
     }
 
 
@@ -299,6 +348,9 @@ class SceneLoader {
                 break;
             case "text":
                 entity = new TextEntity( scene, { json: item, refs: this._references } );
+                break;
+            case "model":
+                entity = new ModelEntity( scene, { json: item, refs: this._references } );
                 break;
             default:
                 console.error( "mapray: unknown entity type: " + type );
@@ -457,7 +509,12 @@ var ResourceType = {
     /**
      * メッシュファイル
      */
-    MESH: { id: "MESH" }
+    MESH: { id: "MESH" },
+
+    /**
+     * モデルファイル
+     */
+    MODEL: { id: "MODEL" }
 
 };
 
