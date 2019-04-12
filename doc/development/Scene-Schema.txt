@@ -6,9 +6,14 @@
 start => <SCENE>
 
 <SCENE> => {
+  model_register?: { (<ID>: <MODEL>)* } = {}
   mesh_register?: { (<ID>: <MESH>)* } = {}
   texture_register?: { (<ID>: <TEXTURE>)* } = {}
   entity_list?: [ <ENTITY>* ] = []
+}
+
+<MODEL> => {
+  link: <URL>
 }
 
 <MESH> => {
@@ -21,8 +26,14 @@ start => <SCENE>
 
 <ENTITY> => {
   id?: <ID>
-  <GENERIC-CONTENT> | <MARKERLINE-CONTENT> | <TEXT-CONTENT>
+  <MODEL-CONTENT> | <GENERIC-CONTENT> | <MARKERLINE-CONTENT> | <TEXT-CONTENT>
 }
+
+<MODEL-CONTENT> =>
+  type: "model"
+  transform: <TRANSFORM>
+  ref_model: <ID>
+  index?: Number = 0
 
 <GENERIC-CONTENT> =>
   type?: "generic"
