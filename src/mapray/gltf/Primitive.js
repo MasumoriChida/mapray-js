@@ -83,7 +83,7 @@ class Primitive {
 
 
     /**
-     * this._attributes を設定
+     * this._indices を設定
      *
      * @param {object}              jprimitive  glTF の primitive オブジェクト
      * @param {mapray.gltf.Context} ctx         読み込みコンテキスト
