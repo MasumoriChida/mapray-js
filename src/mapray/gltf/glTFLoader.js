@@ -1,5 +1,5 @@
 import Context from "./Context";
-import Node from "./Node";
+import Scene from "./Scene";
 
 
 /**
@@ -16,23 +16,24 @@ class glTFLoader {
      *
      * @param  {mapray.ModelData} model      モデルデータ
      * @param  {object}           [options]  オプション
-     * @param  {number}                                [options.index]     シーン索引
      * @param  {mapray.gltf.glTFLoader.FinishCallback} [options.callback]  終了コールバック関数
      */
     constructor( model, options )
     {
         var opts = options || {};
 
-        this._root_nodes = [];
+        this._scenes              = [];
+        this._default_scene_index = -1;
 
         // glTF バージョンを確認
-        var version = this._load_version( model.body );
+        var version = this._loadVersion( model.body );
         if ( version.major < 2 ) {
             throw new Error( "glTF version error" );
         }
 
         var context = new Context( this, model, opts );
-        this._load_root_nodes( context, opts );
+        this._loadScenes( context );
+        this._loadDefaultSceneIndex( context );
         context.onFinishLoadBody();
     }
 
@@ -44,7 +45,32 @@ class glTFLoader {
      */
     get root_nodes()
     {
-        return this._root_nodes;
+        return this._scenes[0].root_nodes;
+    }
+
+
+    /**
+     * @summary シーンの配列
+     *
+     * @type {mapray.gltf.Scene[]}
+     * @readonly
+     */
+    get scenes()
+    {
+        return this._scenes;
+    }
+
+
+    /**
+     * @summary 既定シーンの索引
+     * @desc
+     * <p>既定シーンの索引を返す。ただし既定シーンがないときは -1 を返す。</p>
+     * @type {number}
+     * @readonly
+     */
+    get default_scene_index()
+    {
+        return this._default_scene_index;
     }
 
 
@@ -55,7 +81,7 @@ class glTFLoader {
      * @return {object}        { major: メジャー番号, minor: マイナー番号 }
      * @private
      */
-    _load_version( gjson )
+    _loadVersion( gjson )
     {
         // asset.schema
 
@@ -72,58 +98,38 @@ class glTFLoader {
 
 
     /**
-     * @summary 最上位の gltf.Node 配列を生成
+     * @summary すべてのシーンを読み込む
      *
-     * <p>ノードの配列を this._root_nodes に設定する。</p>
+     * <p>シーンを読み込み、オブジェクトを this._scenes の配列に設定する。</p>
      *
-     * @param  {mapray.gltf.Context} ctx   読み込みコンテキスト
-     * @param  {object}              opts  オプション
-     * @param  {object}              [opts.index]  シーン索引
-     * @return {array}  gltf.Node の配列
+     * @param {mapray.gltf.Context} ctx  読み込みコンテキスト
      * @private
      */
-    _load_root_nodes( ctx, opts )
+    _loadScenes( ctx )
     {
-        var scene = this._load_scene( ctx, opts );
-        var node_indices = scene.nodes || [];
-        var node_objects = [];
+        const num_scenes = (ctx.gjson.scenes || []).length;
+        const     scenes = [];
 
-        for ( const node_index of node_indices ) {
-            node_objects.push( new Node( ctx, node_index ) );
+        for ( let index = 0; index < num_scenes; ++index ) {
+            scenes.push( new Scene( ctx, index ) );
         }
 
-        this._root_nodes = node_objects;
+        this._scenes = scenes;
     }
 
 
     /**
-     * glTF の scene オブジェクトを取得
+     * @summary 既定シーンの索引を読み込む
      *
-     * @param  {mapray.gltf.Context} ctx   読み込みコンテキスト
-     * @param  {object}              opts  オプション
-     * @param  {object}              [opts.index]  シーン索引
-     * @return {object}  { nodes: 最上位ノードのインデックスの配列 }
+     * <p>既定シーンの索引を解析し、this._default_scene_index に設定する。</p>
+     *
+     * @param {mapray.gltf.Context} ctx  読み込みコンテキスト
      * @private
      */
-    _load_scene( ctx, opts )
+    _loadDefaultSceneIndex( ctx )
     {
-        var  gjson = ctx.gjson;
-        var scenes = gjson.scenes || [];
-        var  index = 0;
-
-        if ( opts.index !== undefined ) {
-            index = opts.index;
-        }
-        else if ( gjson.scene !== undefined ) {
-            index = gjson.scene;
-        }
-
-        if ( index >= 0 && index < scenes.length ) {
-            // specification/2.0/schema/scene.schema.json
-            return scenes[index];
-        }
-        else {
-            throw new Error( "glTF scene (" + index + ") does not exist" );
+        if ( typeof ctx.gjson.scene == 'number' ) {
+            this._default_scene_index = ctx.gjson.scene;
         }
     }
 
