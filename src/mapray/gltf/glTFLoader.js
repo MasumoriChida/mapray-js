@@ -500,19 +500,7 @@ class BufferEntry {
      */
     _getUnitedOriginalAccessors()
     {
-        var src_accessors  = [this._attrib_accessors, this._index_accessors];
-        var orig_accessors = new Map();
-
-        for ( const accessors of src_accessors ) {
-            for ( const accessor of accessors ) {
-                const key = accessor.index;
-                if ( !orig_accessors.has( key ) ) {
-                    orig_accessors.set( key, accessor );
-                }
-            }
-        }
-
-        return orig_accessors.values();
+        return BufferEntry._getOriginalAccessors( this._attrib_accessors.concat( this._index_accessors ) );
     }
 
 
