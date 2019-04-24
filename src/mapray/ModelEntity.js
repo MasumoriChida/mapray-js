@@ -4,8 +4,8 @@ import GeoMath from "./GeoMath";
 import Mesh from "./Mesh";
 import MeshBuffer from "./MeshBuffer";
 import Texture from "./Texture";
-import glTFLoader from "./gltf/glTFLoader";
 import ModelMaterial from "./ModelMaterial";
+import Tool from "./gltf/Tool";
 import NormalTextureInfo from "./gltf/NormalTextureInfo";
 import OcclusionTextureInfo from "./gltf/OcclusionTextureInfo";
 
@@ -100,29 +100,32 @@ class ModelEntity extends Entity {
      */
     _startLoading( json, refs )
     {
-        var opts = {
-            index:    json.index,
-            callback: (loader, isSuccess) => { this._onLoadModel( loader, isSuccess ); }
-        };
+        const model_data = refs[json.ref_model];
 
-        new glTFLoader( refs[json.ref_model], opts );
+        Tool.load( model_data.body, { base_uri: model_data.base_uri } ).
+            then( content => { this._onLoadModel( content, json.index ); } );
     }
 
 
     /**
      * 読み込み後の処理
      *
-     * @param {mapray.gltf.glTFLoader} loader     読み込みを実行したローダー
-     * @param {boolean}                isSuccess  成功したとき true, 失敗したとき false
+     * @param {mapray.gltf.Content} content
+     * @param {number}              [index]
      * @private
      */
-    _onLoadModel( loader, isSuccess )
+    _onLoadModel( content, index )
     {
-        if ( isSuccess ) {
-            var builder = new Builder( this.scene, loader.root_nodes );
-            this._primitives = builder.primitives;
-            this._ptoe_array = this._primitives.map( prim => GeoMath.createMatrix( prim.transform ) );
-        }
+        if ( content.scenes.length == 0 ) return;  // シーンなし
+
+        var si1 = (typeof index == 'number') ? index : content.default_scene_index;
+        var si2 = (si1 >= 0) ? si1 : 0;
+
+        const gltf_scene = content.scenes[si2];
+
+        var builder = new Builder( this.scene, gltf_scene.root_nodes );
+        this._primitives = builder.primitives;
+        this._ptoe_array = this._primitives.map( prim => GeoMath.createMatrix( prim.transform ) );
     }
 
 }
