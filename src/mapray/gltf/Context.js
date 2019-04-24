@@ -1,3 +1,5 @@
+import Content from "./Content";
+import Scene from "./Scene";
 import BufferEntry from "./BufferEntry";
 import ImageEntry from "./ImageEntry";
 import Buffer from "./Buffer";
@@ -5,7 +7,7 @@ import Image from "./Image";
 
 
 /**
- * glTF 読み込みコンテキスト
+ * glTF 読込みコンテキスト
  *
  * @memberof mapray.gltf
  * @private
@@ -13,17 +15,21 @@ import Image from "./Image";
 class Context {
 
     /**
-     * @param {mapray.gltf.glTFLoader} loader  ローダー
-     * @param {mapray.ModelData}       model   モデルデータ
-     * @param {object}                 opts    オプション
-     * @param {mapray.gltf.glTFLoader.FinishCallback} [opts.callback]  終了コールバック関数
+     * @param  {object} body       Tool.load() の同名パラメータを参照
+     * @param  {object} [options]  Tool.load() の同名パラメータを参照
      */
-    constructor( loader, model, opts )
+    constructor( body, options )
     {
-        this._loader   = loader;
-        this._gjson    = model.body;
-        this._base_uri = model.base_uri;
-        this._callback = opts.callback  || defaultFinishCallback;
+        var opts = options || {};
+
+        this._gjson    = body;
+        this._base_uri = (opts.base_uri !== undefined) ? opts.base_uri : "";
+
+        this._resolve  = null;  // Promise の resolve() 関数
+        this._reject   = null;  // Promise の reject() 関数
+
+        this._scenes              = [];
+        this._default_scene_index = -1;
 
         this._buffer_entries = [];  // 共有用バッファの管理 (疎配列)
         this._image_entries  = [];  // 共有用イメージの管理 (疎配列)
@@ -31,6 +37,87 @@ class Context {
         this._load_count    = 0;
         this._load_failed   = false;
         this._body_finished = false;
+    }
+
+
+    /**
+     * @summary glTF の読込みと解析
+     *
+     * @return {Promise}  読込み Promise (mapray.gltf.Content)
+     */
+    load()
+    {
+        return new Promise( (resolve, reject) => {
+            this._resolve = resolve;
+            this._reject  = reject;
+
+            // glTF バージョンを確認
+            var version = this._loadVersion();
+            if ( version.major < 2 ) {
+                this._reject( new Error( "glTF version error" ) );
+            }
+
+            this._loadScenes();
+            this._loadDefaultSceneIndex();
+            this._onFinishLoadBody();
+        } );
+    }
+
+
+    /**
+     * glTF バージョンを解析
+     *
+     * @return {object}  { major: major_version, minor: minor_version }
+     * @private
+     */
+    _loadVersion()
+    {
+        // asset.schema
+
+        var   asset = this._gjson.asset;  // 必須
+        var version = asset.version;      // 必須
+
+        var version_array = /^(\d+)\.(\d+)/.exec( version );
+        var major_version = Number( version_array[1] );
+        var minor_version = Number( version_array[2] );
+
+        return { major: major_version,
+                 minor: minor_version };
+    }
+
+
+    /**
+     * @summary すべてのシーンを読み込む
+     *
+     * <p>シーンを読み込み、オブジェクトを this._scenes の配列に設定する。</p>
+     *
+     * @private
+     */
+    _loadScenes()
+    {
+        const num_scenes = (this._gjson.scenes || []).length;
+        const     scenes = [];
+
+        for ( let index = 0; index < num_scenes; ++index ) {
+            scenes.push( new Scene( this, index ) );
+        }
+
+        this._scenes = scenes;
+    }
+
+
+    /**
+     * @summary 既定シーンの索引を読み込む
+     *
+     * <p>既定シーンの索引を解析し、this._default_scene_index に設定する。</p>
+     *
+     * @private
+     */
+    _loadDefaultSceneIndex()
+    {
+        if ( typeof this._gjson.scene == 'number' ) {
+            this._default_scene_index = this._gjson.scene;
+        }
     }
 
 
@@ -195,8 +282,9 @@ class Context {
 
     /**
      * glTF 本体を読み込み終わったときの処理
+     * @private
      */
-    onFinishLoadBody()
+    _onFinishLoadBody()
     {
         this._body_finished = true;
         this._onFinishLoadSomething();
@@ -218,13 +306,12 @@ class Context {
                 this._rewriteBuffersForByteOrder();
                 this._splitBuffersAndRebuildAccessors();
                 this._rebuildTextureInfo();
+                this._resolve( new Content( this._scenes, this._default_scene_index ) );
             }
             else {
                 // どこかで失敗した
-                console.error( "glTF failed" );
+                this._reject( new Error( "glTF failed" ) );
             }
-
-            this._callback( this._loader, is_success );
         }
     }
 
@@ -270,17 +357,6 @@ class Context {
         }
     }
 
-}
-
-
-/**
- * @summary 既定の終了コールバック
- *
- * @memberof mapray.gltf
- * @private
- */
-function defaultFinishCallback( loader, isSuccess )
-{
 }
 
 
