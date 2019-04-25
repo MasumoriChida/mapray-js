@@ -1,11 +1,12 @@
 import CredentialMode from "./CredentialMode";
 import Mesh from "./Mesh";
 import Texture from "./Texture";
-import ModelData from "./ModelData";
+import ModelContainer from "./ModelContainer";
 import GenericEntity from "./GenericEntity";
 import MarkerLineEntity from "./MarkerLineEntity";
 import TextEntity from "./TextEntity";
 import ModelEntity from "./ModelEntity";
+import GltfTool from "./gltf/Tool";
 
 
 /**
@@ -80,7 +81,7 @@ class SceneLoader {
      * @desc
      * <p>注意: シーンの読み込みが終了したことを確認してからこのメソッドを呼び出すこと。</p>
      * @param  {string}                                   id  識別子
-     * @return {?(mapray.Mesh|mapray.Texture|mapray.ModelData|mapray.Entity)}  オブジェクト
+     * @return {?(mapray.Mesh|mapray.Texture|mapray.ModelContainer|mapray.Entity)}  オブジェクト
      */
     getReference( id )
     {
@@ -94,7 +95,7 @@ class SceneLoader {
      * @desc
      * <p>オブジェクト item を識別子 id で参照できるように this に設定する。</p>
      * @param {string}                                   id    識別子
-     * @param {mapray.Mesh|mapray.Texture|mapray.ModelData|mapray.Entity} item  オブジェクト
+     * @param {mapray.Mesh|mapray.Texture|mapray.ModelContainer|mapray.Entity} item  オブジェクト
      * @private
      */
     _setReference( id, item )
@@ -208,7 +209,7 @@ class SceneLoader {
         for ( var i = 0; i < keys.length; ++i ) {
             var    id = keys[i];
             var model = model_register[id];
-            this._load_model_data( oscene, id, model.link );
+            this._load_model_container( oscene, id, model.link );
         }
     }
 
@@ -216,7 +217,7 @@ class SceneLoader {
     /**
      * @private
      */
-    _load_model_data( oscene, id, url )
+    _load_model_container( oscene, id, url )
     {
         var tr = this._transform( url, ResourceType.MODEL );
 
@@ -228,7 +229,13 @@ class SceneLoader {
             .then( json => {
                 // モデルデータの取得に成功
                 this._check_cancel();
-                this._setReference( id, new ModelData( json, { base_uri: url } ) );
+                // データを解析して gltf.Content を構築
+                return GltfTool.load( json, { base_uri: url } );
+            } )
+            .then( content => {
+                // モデルデータの構築に成功
+                var container = new ModelContainer( this._scene, content );
+                this._setReference( id, container );
             } )
             .catch( () => {
                 // モデルデータの取得に失敗
