@@ -30,6 +30,7 @@ class ModelContainer {
         this._entries  = [];    // 辞書: 整数 -> Entry
         this._name_map = {};    // 辞書: 名前 -> Entry
         this._default  = null;  // 既定モデルの Entry
+        this._offset_transform = GeoMath.setIdentity( GeoMath.createMatrix() );
 
         const share = {};
 
@@ -60,6 +61,17 @@ class ModelContainer {
 
 
     /**
+     * @summary オフセット用の変換行列を設定
+     *
+     * @param {mapray.Matrix} matrix  モデルの頂点座標を変換する変換行列
+     */
+    setOffsetTransform( matrix )
+    {
+        GeoMath.copyMatrix( matrix, this._offset_transform );
+    }
+
+
+    /**
      * @summary モデルデータを生成
      *
      * @desc
@@ -78,6 +90,7 @@ class ModelContainer {
 
         for ( const prim of entry.primitives ) {
             const cloned_prim = prim.fastClone();
+            GeoMath.mul_AA( this._offset_transform, cloned_prim.transform, cloned_prim.transform );  // オフセット変換行列を適用
             cloned_prim.properties = Builder.fastCloneProperties( cloned_prim.properties );
             primitives.push( cloned_prim );
         }
