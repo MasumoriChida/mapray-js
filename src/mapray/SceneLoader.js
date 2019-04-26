@@ -1,3 +1,4 @@
+import GeoMath from "./GeoMath";
 import CredentialMode from "./CredentialMode";
 import Mesh from "./Mesh";
 import Texture from "./Texture";
@@ -209,7 +210,7 @@ class SceneLoader {
         for ( var i = 0; i < keys.length; ++i ) {
             var    id = keys[i];
             var model = model_register[id];
-            this._load_model_container( oscene, id, model.link );
+            this._load_model_container( oscene, id, model );
         }
     }
 
@@ -217,9 +218,10 @@ class SceneLoader {
     /**
      * @private
      */
-    _load_model_container( oscene, id, url )
+    _load_model_container( oscene, id, model )
     {
-        var tr = this._transform( url, ResourceType.MODEL );
+        var url = model.link;
+        var  tr = this._transform( url, ResourceType.MODEL );
 
         fetch( tr.url, this._make_fetch_params( tr ) )
             .then( response => {
@@ -235,6 +237,10 @@ class SceneLoader {
             .then( content => {
                 // モデルデータの構築に成功
                 var container = new ModelContainer( this._scene, content );
+                if ( model.offset_transform ) {
+                    var matrix = SceneLoader.parseOffsetTransform( model.offset_transform );
+                    container.setOffsetTransform( matrix );
+                }
                 this._setReference( id, container );
             } )
             .catch( () => {
@@ -440,6 +446,45 @@ class SceneLoader {
         this._finished = true;
         this._scene.removeLoader( this );
         this._callback( this, false );
+    }
+
+
+    /**
+     * スキーマ <OFFSET-TRANSFORM> のオブジェクトを解析
+     *
+     * @param  {object} offset_transform  <OFFSET-TRANSFORM> オブジェクト
+     * @return {mapray.Matrix}            オフセット変換行列
+     * @package
+     */
+    static
+    parseOffsetTransform( offset_transform )
+    {
+        var     ot = offset_transform;
+        var result = GeoMath.createMatrix();
+
+        if ( ot.matrix ) {
+            // <TRANSFORM-MATRIX>
+            return GeoMath.copyMatrix( ot.matrix, result );
+        }
+        else {
+            // <OFFSET-TRANSFORM-PARAMS>
+            var translate = ot.translate || [0, 0, 0];
+            var heading   = ot.heading   || 0;
+            var tilt      = ot.tilt      || 0;
+            var roll      = ot.roll      || 0;
+            var scale     = (ot.scale !== undefined) ? ot.scale : [1, 1, 1];  // <PARAM-SCALE3>
+            if ( typeof scale == 'number' ) {
+                // スケールをベクトルに正規化
+                scale = [scale, scale, scale];
+            }
+
+            // KML 互換のモデル変換行列 + 平行移動
+            GeoMath.kml_model_matrix( heading, tilt, roll, scale, result );
+            result[12] = translate[0];
+            result[13] = translate[1];
+            result[14] = translate[2];
+            return result;
+        }
     }
 
 }
