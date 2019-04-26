@@ -28,7 +28,7 @@ class ModelEntity extends Entity {
         if ( opts && opts.json ) {
             var json = opts.json;
             var refs = opts.refs || {};
-            ModelEntity._getJsonTransform( json, this._transform );
+            this._transform = this.parseTransform( json.transform );
             this._setupPrimitives( json, refs );
         }
     }
@@ -60,28 +60,6 @@ class ModelEntity extends Entity {
     setTransform( matrix )
     {
         GeoMath.copyMatrix( matrix, this._transform );
-    }
-
-
-    /**
-     * JSON から変換情報を取得
-     * @private
-     */
-    static _getJsonTransform( json, transform )
-    {
-        var matrix = json.transform.matrix;
-        if ( matrix ) {
-            // 直接変換行列
-            GeoMath.copyMatrix( matrix, transform );
-        }
-        else {
-            // mapray 球面座標系
-            var carto = json.transform.cartographic;
-            var  iscs = { longitude: carto[0],
-                          latitude:  carto[1],
-                          height:    carto[2] };
-            GeoMath.iscs_to_gocs_matrix( iscs, transform );
-        }
     }
 
 
