@@ -14,6 +14,7 @@ start => <SCENE>
 
 <MODEL> => {
   link: <URL>
+  offset_transform?: <OFFSET-TRANSFORM> = {}
 }
 
 <MESH> => {
@@ -58,8 +59,24 @@ start => <SCENE>
   font_family?: String = "sans-serif"
   color?: <PARAM-VEC3> = [1, 1, 1]
 
-<TRANSFORM> => {
-  (matrix: <MATRIX>) | (cartographic: <CARTOGRAPHIC>)
+<TRANSFORM> => <TRANSFORM-MATRIX> | <TRANSFORM-CARTOGRAPHIC>
+
+<OFFSET-TRANSFORM> => <TRANSFORM-MATRIX> | <OFFSET-TRANSFORM-PARAMS>
+
+<TRANSFORM-MATRIX> => {
+  matrix: <MATRIX>
+}
+
+<TRANSFORM-CARTOGRAPHIC> => {
+  cartographic: <CARTOGRAPHIC>
+}
+
+<OFFSET-TRANSFORM-PARAMS> => {
+  translate?: <PARAM-VEC3> = [0, 0, 0]
+  heading?: <PARAM-FLOAT> = 0
+  tilt?: <PARAM-FLOAT> = 0
+  roll?: <PARAM-FLOAT> = 0
+  scale?: <PARAM-SCALE3> = [1, 1, 1]
 }
 
 <CARTESIAN-POINTS> => {
@@ -102,6 +119,8 @@ start => <SCENE>
   type:        "tex-2d"
   ref_texture: <ID>
 }
+
+<PARAM-SCALE3> => <PARAM-VEC3> | Number
 
 <MESH-DATA> =>
   vtype:    ("P" | "PN" | "PT" | "PNT")
